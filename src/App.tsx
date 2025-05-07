@@ -2,7 +2,7 @@ import React from 'react'
 import { Outlet, Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from './auth/AuthProvider'
 
-export default function App() {
+const App = () => {
   const { user, logout, isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
@@ -118,3 +118,5 @@ export default function App() {
     </div>
   )
 }
+
+export default App

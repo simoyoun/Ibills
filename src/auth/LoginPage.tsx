@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from './AuthProvider'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, Link } from '@tanstack/react-router'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -62,6 +62,15 @@ export function LoginPage() {
             Sign In
           </button>
         </form>
+        <div className="mt-4 text-center text-sm text-gray-600">
+          <Link to="/forgot-password" className="text-indigo-600 hover:text-indigo-800">
+            Forgot password?
+          </Link>
+          <span className="mx-2">•</span>
+          <Link to="/signup" className="text-indigo-600 hover:text-indigo-800">
+            Create account
+          </Link>
+        </div>
       </div>
     </div>
   )
