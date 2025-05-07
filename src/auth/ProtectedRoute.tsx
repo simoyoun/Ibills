@@ -1,12 +1,12 @@
-import { Navigate, Route } from '@tanstack/react-router'
+import { Navigate } from '@tanstack/react-router'
 import { useAuth } from './AuthProvider'
 
-export function ProtectedRoute(props: any) {
+export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
   
   if (!isAuthenticated) {
     return <Navigate to="/login" />
   }
 
-  return <Route {...props} />
+  return children
 }

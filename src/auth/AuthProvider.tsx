@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 import { auth, googleProvider, appleProvider } from './firebase'
-import { signInWithPopup, signOut as firebaseSignOut, User as FirebaseUser } from 'firebase/auth'
+import { 
+  signInWithPopup, 
+  signOut as firebaseSignOut, 
+  User as FirebaseUser,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signInWithEmailAndPassword
+} from 'firebase/auth'
 
 interface User {
   id: string
@@ -41,13 +48,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string) => {
-    // Implement email/password login
-    return false
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+      return true
+    } catch (error) {
+      console.error('Login error:', error)
+      return false
+    }
   }
 
   const signUp = async (email: string, password: string, name: string) => {
-    // Implement email/password sign up
-    return false
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      await updateProfile(userCredential.user, {
+        displayName: name
+      })
+      return true
+    } catch (error) {
+      console.error('Sign up error:', error)
+      return false
+    }
   }
 
   const signInWithGoogle = async () => {
