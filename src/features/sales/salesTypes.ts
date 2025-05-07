@@ -1,5 +1,5 @@
 export interface Sale {
-  id: string
+  id?: string
   userId: string
   customerId: string
   items: Array<{
@@ -8,7 +8,12 @@ export interface Sale {
     price: number
   }>
   total: number
-  date: Date
+  date: string
   status: 'pending' | 'completed' | 'cancelled'
   notes?: string
+}
+
+export interface SaleWithDetails extends Sale {
+  customerName?: string
+  itemNames?: string[]
 }
