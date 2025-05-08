@@ -3,13 +3,8 @@ import { addDoc, collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../../auth/firebase'
 import { useAuth } from '../../auth/AuthProvider'
 import { Sale } from './salesTypes'
-
-interface Item {
-  id: string
-  name: string
-  price: number
-  stock: number
-}
+import { getAllInventoryItems } from '../inventory/inventoryQueries'
+import { InventoryItem } from '../inventory/inventoryTypes'
 
 interface Customer {
   id: string
@@ -20,7 +15,7 @@ interface Customer {
 export function SalesPage() {
   const { user } = useAuth()
   const [sales, setSales] = useState<Sale[]>([])
-  const [items, setItems] = useState<Item[]>([])
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedItems, setSelectedItems] = useState<{id: string, quantity: number}[]>([])
   const [newSale, setNewSale] = useState<Omit<Sale, 'id'>>({
@@ -32,30 +27,37 @@ export function SalesPage() {
     status: 'pending',
     notes: ''
   })
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user?.id) return
+
       // Fetch sales
-      const salesQuery = query(collection(db, 'sales'), where('userId', '==', user?.id))
+      const salesQuery = query(collection(db, 'sales'), where('userId', '==', user.id))
       const salesSnapshot = await getDocs(salesQuery)
       setSales(salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale)))
 
       // Fetch inventory items
-      const itemsQuery = query(collection(db, 'inventory'), where('stock', '>', 0))
-      const itemsSnapshot = await getDocs(itemsQuery)
-      setItems(itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Item)))
+      const items = await getAllInventoryItems()
+      setInventoryItems(items.filter(item => item.quantity > 0))
 
       // Fetch customers
       const customersSnapshot = await getDocs(collection(db, 'customers'))
       setCustomers(customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer)))
     }
 
-    if (user?.id) fetchData()
+    fetchData()
   }, [user])
+
+  const filteredItems = inventoryItems.filter(item =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   const handleAddItem = (itemId: string) => {
     const existingItem = selectedItems.find(item => item.id === itemId)
-    const item = items.find(i => i.id === itemId)
+    const item = inventoryItems.find(i => i.id === itemId)
     
     if (!item) return
 
@@ -69,7 +71,7 @@ export function SalesPage() {
 
     // Update total
     const total = selectedItems.reduce((sum, selected) => {
-      const item = items.find(i => i.id === selected.id)
+      const item = inventoryItems.find(i => i.id === selected.id)
       return sum + (item?.price || 0) * selected.quantity
     }, item.price)
 
@@ -78,7 +80,7 @@ export function SalesPage() {
       items: selectedItems.map(selected => ({
         itemId: selected.id,
         quantity: selected.quantity,
-        price: items.find(i => i.id === selected.id)?.price || 0
+        price: inventoryItems.find(i => i.id === selected.id)?.price || 0
       })),
       total
     })
@@ -176,15 +178,27 @@ export function SalesPage() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Items</label>
+              <label className="block text-sm font-medium mb-1">Search Products</label>
+              <input
+                type="text"
+                placeholder="Search by name or SKU"
+                className="w-full p-2 border rounded mb-2"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-                {items.map(item => (
+                {filteredItems.map(item => (
                   <div key={item.id} className="flex items-center justify-between p-2 border rounded">
-                    <span>{item.name} (${item.price})</span>
+                    <div>
+                      <div className="font-medium">{item.name}</div>
+                      <div className="text-sm text-gray-500">SKU: {item.sku}</div>
+                      <div className="text-sm">${item.price} | Stock: {item.quantity}</div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleAddItem(item.id)}
                       className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
+                      disabled={item.quantity <= 0}
                     >
                       Add
                     </button>
@@ -198,14 +212,18 @@ export function SalesPage() {
                 <h3 className="font-medium mb-2">Selected Items</h3>
                 <div className="space-y-2">
                   {selectedItems.map(selected => {
-                    const item = items.find(i => i.id === selected.id)
+                    const item = inventoryItems.find(i => i.id === selected.id)
                     return (
                       <div key={selected.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span>{item?.name}</span>
+                        <div>
+                          <span className="font-medium">{item?.name}</span>
+                          <div className="text-sm text-gray-500">${item?.price} each</div>
+                        </div>
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
                             min="1"
+                            max={item?.quantity}
                             value={selected.quantity}
                             onChange={(e) => handleQuantityChange(selected.id, parseInt(e.target.value))}
                             className="w-16 p-1 border rounded"
