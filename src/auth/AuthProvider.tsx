@@ -35,25 +35,39 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   const setUserWithClaims = async (firebaseUser: FirebaseUser) => {
+    console.log('Setting user with claims')
     const tokenResult = await firebaseUser.getIdTokenResult()
-    setUser({
+    const userData = {
       id: firebaseUser.uid,
       email: firebaseUser.email || '',
       name: firebaseUser.displayName || 'User',
       photoURL: firebaseUser.photoURL,
       isAdmin: tokenResult.claims.admin === true,
       isSales: tokenResult.claims.sales === true
-    })
+    }
+    console.log('User data:', userData)
+    setUser(userData)
+    return userData
   }
 
   useEffect(() => {
+    console.log('Auth state changed listener setup')
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        await setUserWithClaims(firebaseUser)
-      } else {
-        setUser(null)
+      console.log('Auth state changed:', firebaseUser)
+      setIsLoading(true)
+      try {
+        if (firebaseUser) {
+          await setUserWithClaims(firebaseUser)
+        } else {
+          setUser(null)
+        }
+      } catch (error) {
+        console.error('Error handling auth state change:', error)
+      } finally {
+        setIsLoading(false)
       }
     })
     return unsubscribe
@@ -61,14 +75,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUserClaims = async () => {
     if (auth.currentUser) {
+      console.log('Refreshing user claims')
       await auth.currentUser.getIdToken(true) // Force token refresh
       await setUserWithClaims(auth.currentUser)
     }
   }
 
   const login = async (email: string, password: string) => {
+    console.log('Attempting login with:', email)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      console.log('Login successful, user:', userCredential.user)
+      await setUserWithClaims(userCredential.user)
       return true
     } catch (error) {
       console.error('Login error:', error)
@@ -81,7 +99,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       await updateProfile(userCredential.user, { displayName: name })
       
-      // Set custom claims
       await fetch('https://us-central1-ibills-79a61.cloudfunctions.net/setCustomClaims', {
         method: 'POST',
         headers: {
@@ -94,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
       })
 
-      // Create employee document
       await setDoc(doc(db, 'employees', userCredential.user.uid), {
         name,
         email,

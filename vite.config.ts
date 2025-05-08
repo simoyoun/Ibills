@@ -5,7 +5,9 @@ import { TanStackRouterVite } from '@tanstack/router-vite-plugin'
 export default defineConfig({
   plugins: [
     react(),
-    TanStackRouterVite()
+    TanStackRouterVite({
+      routesDirectory: './src/features'
+    })
   ],
   server: {
     port: 3000,
